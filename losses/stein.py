@@ -5,7 +5,8 @@ def keep_grad(output, input, grad_outputs=None):
 
 def approx_jacobian_trace(fx, x):
     eps = torch.randn_like(fx)
-    # grad_outputs作用
+    # grad_outputs作用，因为fx对x的梯度是二维矩阵，所以要乘上grad_outputs
+    # 当loss是向量而非标量（即梯度是矩阵而非向量）时，需要显式地传递gradient参数
     eps_dfdx = keep_grad(fx, x, grad_outputs=eps)
     # 为什么是mean，不应该是sum么
     tr_dfdx = (eps_dfdx * eps).mean([-1,-2,-3])
@@ -14,12 +15,12 @@ def approx_jacobian_trace(fx, x):
 
 def exact_jacobian_trace(fx, x):
     vals = []
-    # x.size(1)是channel那一维，那一维是1，fx和x都是256*1*28*28
+    # x.size(1)是channel那一维，那一维是1，fx和x都是256*1*28*28，只保留batch那一维
     for i in range(x.size(1)):
         for j in range(x.size(2)):
             for k in range(x.size(3)):
                 fxi = fx[:, i, j, k]
-                # fxi.sum()是scalar
+                # fxi.sum()是scalar，因为batch内的其他f(xj)对于当前xi的梯度都是0
                 dfxi_dxi = keep_grad(fxi.sum(), x)[:, i, j, k][:, None]
                 vals.append(dfxi_dxi)
     vals = torch.cat(vals, dim=1)
